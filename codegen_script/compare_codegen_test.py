@@ -11,8 +11,8 @@ def test_codegen_differences():
     # subprocess.run("perl codegen.pl")
     # runpy.run_path("codegen.py", run_name="__main__")
 
-    py_codegen_out = Path("codegen_t")
-    perl_codegen_out = Path("codegen")
+    py_codegen_out = Path("../codegen_t")
+    perl_codegen_out = Path("../codegen")
 
     # Perl prints out the hex converted values in proper two's complement,
     # Python doesn't as Python's int doesn't have a set size, so it instead

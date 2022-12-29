@@ -21,9 +21,9 @@ struct_template = None
 
 def get_arguments() -> tuple[Path, Path, str]:
     arg_parser = argparse.ArgumentParser(prog="codegen.py", description="Generates DFHack headers from XML files.")
-    arg_parser.add_argument("input_directory", default=".", nargs="?",
+    arg_parser.add_argument("input_directory", default="../", nargs="?",
                             help="The directory containing XML files to parse.")
-    arg_parser.add_argument("output_directory", default="codegen", nargs="?",
+    arg_parser.add_argument("output_directory", default="../codegen", nargs="?",
                             help="Directory to output generated header files.")
     arg_parser.add_argument("main_namespace", default="df", nargs="?",
                             help="Namespace generated headers will be within.")
