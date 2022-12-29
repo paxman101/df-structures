@@ -3,33 +3,50 @@
 #ifdef __GNUC__
 #pragma GCC system_header
 #endif
-#include Export.h
-#include DataDefs.h
-{% if base_type %}
+#include "DataDefs.h"
+#include "Export.h"
+{% if include_cstdint %}
 #include "cstdint"
 {% endif %}
+{% for hard_reference in hard_references %}
+#include "{{ hard_reference }}.h"
+{% endfor %}
 namespace {{ main_namespace }} {
   namespace enums {
     namespace {{ enum_typename }} {
-      enum {{ enum_typename }} : {{ base_type if base_type else "uint32_t" }} {
+      {% if comments|length %}
+      /**
+      {% for comment in comments if comment %}
+       * {{ comment }}
+      {% endfor %}
+       */
+      {% endif %}
+      enum {{ enum_typename }} : {{ base_type }} {
       {% for enum_item in enum_items %}
+        {% if enum_item.comments|length %}
+        /**
+        {% for comment in enum_item.comments if comment %}
+         * {{ comment }}
+        {% endfor %}
+         */
+        {% endif %}
         {{ enum_item.name -}}
-        {{ " = " + enum_item.set_value|string if enum_item.set_value is defined else ""}},
+        {{ " = " + enum_item.set_value|string if enum_item.set_value or enum_item.set_value == 0 else ""}},
         {{- " // %d, 0x%X" % (enum_item.real_value, enum_item.real_value) }}
       {% endfor %}
-      }
+      };
     }
   }
   using enums::{{ enum_typename + "::" + enum_typename }};
   template<> struct {{ export_prefix }} identity_traits<{{ enum_typename }}> {
-    static enum_identity;
+    static enum_identity identity;
     static enum_identity *get() { return &identity; }
-  }
+  };
   template<> struct {{ export_prefix }} enum_traits<{{ enum_typename }}> {
     static const bool is_complex = {{ "true" if traits.is_complex else "false" }};
-    typedef {{ base_type if base_type else "uint32_t" }} base_type;
+    typedef {{ base_type }} base_type;
     typedef {{ enum_typename }} enum_type;
-    static const base_type first_item_value = {{ traits.first_item_value }};
+    static const base_type first_item_value = {{ traits.base }};
     static const base_type last_item_value = {{ traits.last_item_value }};
     static inline bool is_valid(base_type value) {
       return (value >= first_item_value && value <= last_item_value);
@@ -40,14 +57,14 @@ namespace {{ main_namespace }} {
     {% if traits.is_complex %}
     static const DFHack::enum_identity::ComplexData complex;
     {% endif %}
-    {% if traits.anames is defined %}
-    struct attr_entrytype {
-    {% for i in range(traits.anames|length) %}
-      {{ traits.atypes[i] + " " + traits.anames[i] }};
+    {% if attributes|length > 0 %}
+    struct attr_entry_type {
+    {% for attr_name, attr_dict in attributes.items() %}
+      {{ attr_dict["attr_type"] + " " + attr_name }};
     {% endfor %}
       static struct_identity _identity;
     };
-    static const attr_entry_type attr_table[{{ traits.count|string }}+1]
+    static const attr_entry_type attr_table[{{ traits.count|string }}+1];
     static const attr_entry_type &attrs(enum_type value);
     {% endif %}
   };
