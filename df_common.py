@@ -51,19 +51,51 @@ def get_comment(element: etree._Element, attribute=False) -> list[str]:
     return comment_list
 
 
+def check_bad_attrs(element: etree._Element, allow_size=False, allow_align=False):
+    if not allow_size and element.get("size"):
+        raise Exception(f"Cannot use size for {element}")
+    if element.get("offset"):
+        raise Exception(f"Cannot use offset for {element}")
+    if not allow_align and element.get("alignment"):
+        raise Exception(f"Cannot use alignment for {element}")
+
+
 class SharedState:
     """
     Holds shared state needed between the different modules used by codegen.py
     as well as various functions that require access to this state.
     """
 
-    def __init__(self, type_dict: dict[str, etree._Element], type_files_dict: dict[str, Path],
-                 global_dict: dict[str, etree._Element], global_files_dict: dict[str, Path], main_namespace: str):
-        self.type_dict = type_dict
-        self.type_files_dict = type_files_dict
-        self.global_dict = global_dict
-        self.global_files_dict = global_files_dict
+    def __init__(self, main_namespace: str):
+        self.type_dict: dict[str, etree._Element] = {}
+        self.type_files_dict: dict[str, Path] = {}
+        self.global_dict: dict[str, etree._Element] = {}
+        self.global_files_dict: dict[str, Path] = {}
         self.main_namespace = main_namespace
+
+    # lxml's Element type has a prefixed underscore but _Element isn't
+    # actually a "private" type
+    def add_type_to_dict(self, element: etree._Element, source_xml_path: Path):
+        type_name = element.get("type-name")
+        if not type_name:
+            raise Exception(f"type-name not defined for {element} in file {source_xml_path}")
+
+        if type_name in self.type_dict:
+            raise Exception(f"Duplicate definition of global {type_name}")
+        check_bad_attrs(element)
+        self.type_dict[type_name] = element
+        self.type_files_dict[type_name] = source_xml_path
+
+    def add_global_to_dict(self, element: etree._Element, source_xml_path: Path):
+        name = element.get("name")
+        if not name:
+            raise Exception(f"Global {element} without a name in file {source_xml_path}")
+
+        if name in self.global_dict:
+            raise Exception(f"Duplicate definition of global {name}")
+        check_bad_attrs(element)
+        self.global_dict[name] = element
+        self.global_files_dict[name] = source_xml_path
 
     def decode_type_name_ref(self, element: etree._Element, force_type: str = None, attr_name: str = None) \
             -> tuple[str, Optional[etree._Element]]:

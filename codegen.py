@@ -31,45 +31,7 @@ def get_arguments() -> tuple[Path, Path, str]:
     return Path(args.input_directory), Path(args.output_directory), args.main_namespace
 
 
-# TODO: Move to a class
-def process_xml_files(input_directory: Path, output_directory: Path):
-    type_dict = dict()
-    type_files_dict = dict()
-    global_dict = dict()
-    global_files_dict = dict()
-
-    # lxml's Element type has a prefixed underscore but _Element isn't
-    # actually a "private" type
-    def check_bad_attrs(element: etree._Element, allow_size=False, allow_align=False):
-        if not allow_size and element.get("size"):
-            raise Exception(f"Cannot use size for {element}")
-        if element.get("offset"):
-            raise Exception(f"Cannot use offset for {element}")
-        if not allow_align and element.get("alignment"):
-            raise Exception(f"Cannot use alignment for {element}")
-
-    def add_type_to_dict(element: etree._Element, source_xml_path: Path):
-        type_name = element.get("type-name")
-        if not type_name:
-            raise Exception(f"type-name not defined for {element} in file {source_xml_path}")
-
-        if type_name in type_dict:
-            raise Exception(f"Duplicate definition of global {type_name}")
-        check_bad_attrs(element)
-        type_dict[type_name] = element
-        type_files_dict[type_name] = source_xml_path
-
-    def add_global_to_dict(element: etree._Element, source_xml_path: Path):
-        name = element.get("name")
-        if not name:
-            raise Exception(f"Global {element} without a name in file {source_xml_path}")
-
-        if name in global_dict:
-            raise Exception(f"Duplicate definition of global {name}")
-        check_bad_attrs(element)
-        global_dict[name] = element
-        global_files_dict[name] = source_xml_path
-
+def process_xml_files(shared_state: SharedState, input_directory: Path, output_directory: Path):
     # Import the two XSLT files in the script dir to transform the XML files we read.
     # Each XML file gets transformed by lower-1.xslt, then the result is then transformed by lower-2.xslt.
     script_directory = Path(__file__).parent
@@ -85,14 +47,12 @@ def process_xml_files(input_directory: Path, output_directory: Path):
         xml_etree: etree._XSLTResultTree = xslt2_transform(xslt1_transform(xml_etree))
         for element in xml_etree.getroot().iterchildren():
             if element.tag == f"{NS_PREFIX}global-type":
-                add_type_to_dict(element, xml_path)
+                shared_state.add_type_to_dict(element, xml_path)
             elif element.tag == f"{NS_PREFIX}global-object":
-                add_global_to_dict(element, xml_path)
+                shared_state.add_global_to_dict(element, xml_path)
             codegen_out_xml.getroot().append(element)
 
     # codegen_out_xml.write(output_directory / "codegen.out.xml")
-
-    return type_dict, type_files_dict, global_dict, global_files_dict
 
 
 def render_enum_header(enum_element: etree._Element, enum_typename: str, shared_state: SharedState) -> str:
@@ -131,8 +91,8 @@ def generate_type_headers(shared_state: SharedState, output_directory: Path):
 
 def main():
     input_directory, output_directory, main_namespace = get_arguments()
-    type_dict, type_files_dict, global_dict, global_files_dict = process_xml_files(input_directory, output_directory)
-    shared_state = SharedState(type_dict, type_files_dict, global_dict, global_files_dict, main_namespace)
+    shared_state = SharedState(main_namespace)
+    process_xml_files(shared_state, input_directory, output_directory)
     generate_type_headers(shared_state, output_directory)
 
 
