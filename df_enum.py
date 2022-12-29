@@ -145,6 +145,5 @@ class EnumWrapper:
                 "use_key": use_key,
                 "field_meta": field_meta,
                 "attr_prefix": attr_prefix,
-                "base_type_name": base_type_name,
             }
             self.attributes[attr_name] = attr_dict
