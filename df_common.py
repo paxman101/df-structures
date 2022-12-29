@@ -51,7 +51,7 @@ def get_comment(element: etree._Element, attribute=False) -> list[str]:
     return comment_list
 
 
-def check_bad_attrs(element: etree._Element, allow_size=False, allow_align=False):
+def check_bad_attrs(element: etree._Element, allow_size=False, allow_align=False) -> None:
     if not allow_size and element.get("size"):
         raise Exception(f"Cannot use size for {element}")
     if element.get("offset"):
@@ -75,7 +75,7 @@ class SharedState:
 
     # lxml's Element type has a prefixed underscore but _Element isn't
     # actually a "private" type
-    def add_type_to_dict(self, element: etree._Element, source_xml_path: Path):
+    def add_type_to_dict(self, element: etree._Element, source_xml_path: Path) -> None:
         type_name = element.get("type-name")
         if not type_name:
             raise Exception(f"type-name not defined for {element} in file {source_xml_path}")
@@ -86,7 +86,7 @@ class SharedState:
         self.type_dict[type_name] = element
         self.type_files_dict[type_name] = source_xml_path
 
-    def add_global_to_dict(self, element: etree._Element, source_xml_path: Path):
+    def add_global_to_dict(self, element: etree._Element, source_xml_path: Path) -> None:
         name = element.get("name")
         if not name:
             raise Exception(f"Global {element} without a name in file {source_xml_path}")

@@ -31,7 +31,7 @@ def get_arguments() -> tuple[Path, Path, str]:
     return Path(args.input_directory), Path(args.output_directory), args.main_namespace
 
 
-def process_xml_files(shared_state: SharedState, input_directory: Path, output_directory: Path):
+def process_xml_files(shared_state: SharedState, input_directory: Path, output_directory: Path) -> None:
     # Import the two XSLT files in the script dir to transform the XML files we read.
     # Each XML file gets transformed by lower-1.xslt, then the result is then transformed by lower-2.xslt.
     script_directory = Path(__file__).parent
@@ -73,7 +73,7 @@ def render_enum_header(enum_element: etree._Element, enum_typename: str, shared_
     )
 
 
-def generate_type_headers(shared_state: SharedState, output_directory: Path):
+def generate_type_headers(shared_state: SharedState, output_directory: Path) -> None:
     type_renderers = {
         "enum-type": render_enum_header,
     }
