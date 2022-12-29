@@ -118,7 +118,7 @@ class SharedState:
                 raise Exception(f"Cannot use type {type_name} as {attr_name} here: {element}.")
             return primitive_type_name(type_name), None
         else:
-            if force_type and force_type != self.type_dict[type_name] != element.get("ld:meta"):
+            if force_type and force_type != self.type_dict[type_name].get("ld:meta"):
                 raise Exception(f"Cannot use type {type_name} as {attr_name} here: {element}.")
             rtype = self.main_namespace + "::" + type_name
             return rtype, self.type_dict[type_name]

@@ -137,8 +137,11 @@ sub with_emit(&;$) {
 
 sub emit(@) {
     # Emit an indented line to be returned from with_emit
+    # concat all list elements together
     my $line = join('',map { defined($_) ? $_ : '' } @_);
+    # prepend $indentation amount of spaces to each line
     $line = (' 'x$indentation).$line unless length($line) == 0;
+    # add $line to the end of @lines
     push @lines, $line;
 }
 

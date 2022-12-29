@@ -3,13 +3,22 @@
 use strict;
 use warnings;
 use File::Glob 'bsd_glob';
-
+use File::Basename;
+use lib dirname (__FILE__);
+# Runs once on startup
 BEGIN {
     our $script_root = '.';
+    # Checking filename with "binding operator"
+    # If the script was executed with preceding directories listed, i.e. it is being ran from not the cwd, $script_root
+    # gets set to that preceding preceding directory path.
+    # E.g., foo/bar/codegen.pl
+    # gives $1 = 'foo/bar'
     if ($0 =~ /^(.*)[\\\/][^\\\/]*$/) {
         $script_root = $1;
+        # Adds $1, the current path to the script's directory, to the beginning of @INC
         unshift @INC, $1;
     }
+    @INC = ('/mnt/c/Users/Paxton/Documents/DFHack/df-structures', @INC);
 };
 
 use XML::LibXML;
@@ -22,7 +31,9 @@ use Bitfield;
 use StructFields;
 use StructType;
 
+# If $ARGV[0] exists, set $input_dir to it. Otherwise set $input_dir to '.'
 my $input_dir = $ARGV[0] || '.';
+# Same for $output_dir, but with $ARGV[1] and 'codegen'
 my $output_dir = $ARGV[1] || 'codegen';
 
 $main_namespace = $ARGV[2] || 'df';
@@ -33,23 +44,30 @@ $export_prefix = 'DFHACK_EXPORT ';
 our $script_root;
 my $parser = XML::LibXML->new();
 my $xslt = XML::LibXSLT->new();
+# Call $xslt->parse_stylesheet_file on lower-1.xslt and lower-2.xslt and store the results in list @tansforms
 my @transforms =
     map { $xslt->parse_stylesheet_file("$script_root/$_"); }
     ('lower-1.xslt', 'lower-2.xslt');
 my @documents;
 
+# Iterate over all files that match "df.*.xml", in lexicographic order
 for my $fn (sort { $a cmp $b } bsd_glob "$input_dir/df.*.xml") {
     local $filename = $fn;
     my $doc = $parser->parse_file($filename);
+    # Transform each found .xml file with lower-1.xslt and lower-2.xslt
     $doc = $_->transform($doc) for @transforms;
 
+    # Append $doc to the end of @documents
     push @documents, $doc;
+    # For every global-type definition, call add_type_to_hash on it
     add_type_to_hash $_ foreach $doc->findnodes('/ld:data-definition/ld:global-type');
+    # For every global-object definition, call add_type_to_hash on it
     add_global_to_hash $_ foreach $doc->findnodes('/ld:data-definition/ld:global-object');
 }
 
 # Generate type text representations
 
+# A dict of references to subroutines that define how to print out each type
 my %type_handlers = (
     'enum-type' => \&render_enum_type,
     'bitfield-type' => \&render_bitfield_type,
@@ -57,6 +75,7 @@ my %type_handlers = (
     'struct-type' => \&render_struct_type,
 );
 
+# Loop through each key value in lexicographic order
 for my $name (sort { $a cmp $b } keys %types) {
     local $typename = $name;
     local $filename = $type_files{$typename};
