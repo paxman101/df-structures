@@ -5,11 +5,9 @@ from lxml import etree
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
-from df_common import SharedState, EXPORT_PREFIX
+from df_common import SharedState, EXPORT_PREFIX, NS_PREFIX, NS_URI
 from df_enum import EnumWrapper
 
-NS_URI = "http://github.com/peterix/dfhack/lowered-data-definition"
-NS_PREFIX = "{http://github.com/peterix/dfhack/lowered-data-definition}"
 
 jinja_env = Environment(loader=FileSystemLoader(Path(__file__).parent / "header_templates"),
                         trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True, newline_sequence="\n")

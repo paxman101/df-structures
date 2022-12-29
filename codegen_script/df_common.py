@@ -21,7 +21,8 @@ PRIMITIVE_ALIASES_DICT = {
 }
 
 EXPORT_PREFIX = "DFHACK_EXPORT"
-
+NS_URI = "http://github.com/peterix/dfhack/lowered-data-definition"
+NS_PREFIX = "{http://github.com/peterix/dfhack/lowered-data-definition}"
 
 # Static functions:
 
