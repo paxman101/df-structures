@@ -38,7 +38,7 @@ namespace {{ main_namespace }} {
     }
   }
   using enums::{{ enum_typename + "::" + enum_typename }};
-  template<> struct {{ export_prefix }} identity_traits<{{ enum_typename }}> {
+  template<> struct {{ export_prefix }} identity_traits<{{ full_name }}> {
     static enum_identity identity;
     static enum_identity *get() { return &identity; }
   };

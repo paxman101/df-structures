@@ -1,5 +1,4 @@
 import argparse
-import re
 
 from lxml import etree
 from pathlib import Path
@@ -7,13 +6,13 @@ from jinja2 import Environment, FileSystemLoader
 
 from df_common import SharedState, EXPORT_PREFIX, NS_PREFIX, NS_URI
 from df_enum import EnumWrapper
-
+from df_bitfield import BitfieldWrapper
 
 jinja_env = Environment(loader=FileSystemLoader(Path(__file__).parent / "header_templates"),
                         trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True, newline_sequence="\n")
 enum_template = jinja_env.get_template("enum.h.jinja")
+bitfield_template = jinja_env.get_template("bitfield.h.jinja")
 # To implement:
-bitfield_template = None
 struct_template = None
 
 
@@ -30,8 +29,9 @@ def get_arguments() -> tuple[Path, Path, str]:
 
 
 def process_xml_files(shared_state: SharedState, input_directory: Path, output_directory: Path) -> None:
-    # Import the two XSLT files in the script dir to transform the XML files we read.
-    # Each XML file gets transformed by lower-1.xslt, then the result is then transformed by lower-2.xslt.
+    # Import the two XSLT files in the script dir to transform the XML files we
+    # read. Each XML file gets transformed by lower-1.xslt, then the result is
+    # then transformed by lower-2.xslt.
     script_directory = Path(__file__).parent
     xslt1_transform = etree.XSLT(etree.parse(script_directory / "lower-1.xslt"))
     xslt2_transform = etree.XSLT(etree.parse(script_directory / "lower-2.xslt"))
@@ -54,26 +54,41 @@ def process_xml_files(shared_state: SharedState, input_directory: Path, output_d
 
 
 def render_enum_header(enum_element: etree._Element, enum_typename: str, shared_state: SharedState) -> str:
-    base_type = enum_element.get("base-type") or "int32_t"
-    include_cstdint = re.match(r"u?int[136]?[2468]_t", base_type) if base_type else False
     enum_wrapper = EnumWrapper(enum_element, shared_state)
     return enum_template.render(
         comments=enum_wrapper.comments,
-        include_cstdint=include_cstdint,
+        include_cstdint=enum_wrapper.include_cstdint,
         export_prefix=EXPORT_PREFIX,
         main_namespace=shared_state.main_namespace,
-        base_type=base_type,
+        base_type=enum_wrapper.base_type,
         enum_typename=enum_typename,
         traits=enum_wrapper.traits,
         enum_items=enum_wrapper.enum_items,
         attributes=enum_wrapper.attributes,
         hard_references=enum_wrapper.hard_references,
+        full_name=enum_wrapper.full_name
+    )
+
+
+def render_bitfield_header(bitfield_element: etree._Element, bitfield_typename: str, shared_state: SharedState) -> str:
+    bitfield_wrapper = BitfieldWrapper(bitfield_element, shared_state)
+    return bitfield_template.render(
+        include_cstdint=bitfield_wrapper.include_cstdint,
+        export_prefix=EXPORT_PREFIX,
+        main_namespace=shared_state.main_namespace,
+        base_type=bitfield_wrapper.base_type,
+        fields=bitfield_wrapper.fields,
+        bitfield_typename=bitfield_typename,
+        full_name=bitfield_wrapper.full_name,
+        hard_references=bitfield_wrapper.hard_references,
+        bitfield_comments=bitfield_wrapper.bitfield_comments,
     )
 
 
 def generate_type_headers(shared_state: SharedState, output_directory: Path) -> None:
     type_renderers = {
         "enum-type": render_enum_header,
+        "bitfield-type": render_bitfield_header,
     }
 
     for type_name, type_element in shared_state.type_dict.items():

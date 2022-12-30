@@ -1,0 +1,69 @@
+/* THIS FILE WAS GENERATED. DO NOT EDIT. */
+#pragma once
+#ifdef __GNUC__
+#pragma GCC system_header
+#endif
+#include "DataDefs.h"
+#include "Export.h"
+{% if include_cstdint %}
+#include "cstdint"
+{% endif %}
+{% for hard_reference in hard_references %}
+#include "{{ hard_reference }}.h"
+{% endfor %}
+namespace {{ main_namespace }} {
+  {% if bitfield_comments|length %}
+  /**
+  {% for comment in bitfield_comments if comment %}
+   * {{ comment }}
+  {% endfor %}
+   */
+  {% endif %}
+  union {{ bitfield_typename }} {
+    {{ base_type }} whole;
+    struct {
+    {% for field in fields %}
+      {% if field.prefix_comments|length %}
+      /**
+      {% for comment in field.prefix_comments if comment %}
+       * {{ comment }}
+      {% endfor %}
+       */
+      {% endif %}
+      {# Concat ";" to size as whitespace breaks otherwise #}
+      {{ field.base }} {{ field.name }} : {{ field.size|string + ";" -}}
+      {% if field.since or field.comment %}
+      {{-
+       " /*!< " + ("since {}".format(field.since) if field.since else "")
+       + ("; " if field.since and field.comment else "")
+       + (field.comment if field.comment else "")
+       + " */"
+      }}
+      {% else %}{# Explicitly output a newline when there are no comments #}
+
+      {% endif %}
+    {% endfor %}
+    } bits;
+    enum Shift {
+    {% for field in fields %}
+      shift_{{ field.name }} = {{ field.index }}{{ "," if not loop.last }}
+    {% endfor %}
+    };
+    enum Mask : {{ base_type }} {
+    {% for field in fields %}
+      mask_{{ field.name }} = {{ "0x%xU" % field.value }}{{ "," if not loop.last }}
+    {% endfor %}
+    };
+    {{ bitfield_typename }}({{ base_type }} whole_ = 0) : whole(whole_) {};
+  };
+  template<> struct {{ export_prefix }} bitfield_traits<{{ full_name }}> {
+    typedef {{ base_type }} base_type;
+    typedef {{ full_name }} bitfield_type;
+    static const int bit_count = sizeof(base_type)*8;
+    static const bitfield_item_info bits[bit_count];
+  };
+  template<> struct {{ export_prefix }} identity_traits<{{ full_name }}> {
+    static bitfield_identity identity;
+    static bitfield_identity *get() { return &identity; }
+  };
+}

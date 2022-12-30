@@ -1,6 +1,6 @@
 from lxml import etree
 
-from df_common import SharedState, get_comment
+from df_common import SharedState, get_comment, get_primitive_base, ensure_name, check_name
 
 
 class EnumWrapper:
@@ -20,6 +20,7 @@ class EnumWrapper:
         self.shared_state = shared_state
         self.type_dict = shared_state.type_dict
         self.comments = get_comment(self.enum_element, attribute=True)
+        self.base_type, self.include_cstdint = get_primitive_base(enum_element, default="int32_t")
         self.traits = {
             "base": 0,
             "count": 0,
@@ -34,6 +35,9 @@ class EnumWrapper:
 
         self.init_attributes()
         self.hard_references = sorted(self.hard_references)
+
+        self.full_name = shared_state.get_fully_qualified_name(self.enum_element, self.enum_element.get("type-name"),
+                                                               namespace=False)
 
     def init_enum_items(self) -> None:
         """
@@ -57,17 +61,10 @@ class EnumWrapper:
         anon_count = 1
         last_value = -1
 
-        for child_element in self.enum_element.getchildren():
-            if child_element.tag != "enum-item":
-                continue
-
+        for child_element in self.enum_element.iterfind("./enum-item"):
             enum_item = dict()
-            if child_element.get("name"):
-                enum_item["name"] = child_element.get("name")
-            else:
-                enum_item["name"] = "anon_" + (str(anon_count) if anon_count != 0 else '')
-                anon_count += 1
 
+            enum_item["name"], anon_count = ensure_name(child_element.get("name"), anon_count)
             enum_item["comments"] = get_comment(child_element, attribute=True)
 
             enum_item["set_value"] = int(child_element.get("value")) if child_element.get("value") else None
@@ -111,6 +108,7 @@ class EnumWrapper:
                 raise Exception(f"Unnamed enum-attr in {self.enum_element.get('type-name')}")
             if attr_name in self.attributes:
                 raise Exception(f"Duplicate attribute {attr_name}.")
+            check_name(attr_name)
 
             attr_type, new_reference = self.shared_state.decode_type_name_ref(attr)
             if new_reference is not None and new_reference.get("type-name") != self.enum_element.get("type-name"):

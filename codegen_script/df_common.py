@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+import re
 
 from lxml import etree
 
@@ -24,6 +25,7 @@ EXPORT_PREFIX = "DFHACK_EXPORT"
 NS_URI = "http://github.com/peterix/dfhack/lowered-data-definition"
 NS_PREFIX = "{http://github.com/peterix/dfhack/lowered-data-definition}"
 
+
 # Static functions:
 
 def is_primitive_type(tag_name: str) -> bool:
@@ -36,10 +38,23 @@ def primitive_type_name(tag_name: str) -> str:
     return PRIMITIVE_ALIASES_DICT.get(tag_name) if PRIMITIVE_ALIASES_DICT.get(tag_name) else tag_name
 
 
-def get_comment(element: etree._Element, attribute=False) -> list[str]:
+def get_primitive_base(element: etree._Element, default="uint32_t") -> tuple[str, bool]:
+    """
+    Verifies a type is primitive, returning the type-name attribute or default
+    if the element doesn't have a type-name attribute.
+    Also returns a bool that indicates if the type is in cstdint.
+    """
+    base_type = element.get("base-type") or default
+    include_cstdint = bool(re.match(r"u?int[136]?[2468]_t", base_type))
+    if not is_primitive_type(base_type):
+        raise Exception(f"Must be primitive: {base_type}")
+    return base_type, include_cstdint
+
+
+def get_comment(element: etree._Element, tag=True, attribute=False) -> list[str]:
     comment_list = []
     comment_element = element.find("./comment")
-    if comment_element is not None:
+    if comment_element is not None and tag:
         comment_text = comment_element.text
         comment_list.extend([comment.strip() for comment in comment_text.split("\n") if comment != ""])
 
@@ -50,6 +65,28 @@ def get_comment(element: etree._Element, attribute=False) -> list[str]:
             comment_list.append("Since " + element.get("since"))
 
     return comment_list
+
+
+def check_name(name_to_check: str) -> str:
+    """
+    Checks for invalid characters in name_to_check
+    """
+    if not re.match(r"^[_a-zA-Z][_a-zA-Z0-9]*$", name_to_check):
+        raise Exception(f"Invalid identifier: {name_to_check}")
+    return name_to_check
+
+
+def ensure_name(name_to_check: Optional[str], anon_count: int) -> tuple[str, int]:
+    """
+    Checks if name_to_check is None. If it is, an anonymous name is generated
+    with the number given in anon_count and returned. If not, name_to_check is
+    passed back.
+    """
+    returned_name = name_to_check
+    if not name_to_check:
+        returned_name = "anon" + (f"_{anon_count}" if anon_count != 0 else '')
+        anon_count += 1
+    return check_name(returned_name), anon_count
 
 
 def check_bad_attrs(element: etree._Element, allow_size=False, allow_align=False) -> None:
@@ -98,7 +135,7 @@ class SharedState:
         self.global_dict[name] = element
         self.global_files_dict[name] = source_xml_path
 
-    def decode_type_name_ref(self, element: etree._Element, force_type: str = None, attr_name: str = None) \
+    def decode_type_name_ref(self, element: etree._Element, force_type: str = None, attr_name: str = "type-name") \
             -> tuple[str, Optional[etree._Element]]:
         """
         Copied from codegen.pl.
@@ -108,8 +145,6 @@ class SharedState:
         :param attr_name:
         :return (reference_type, reference_element): The full typename of the given reference, and also it's element
         """
-        if not attr_name:
-            attr_name = "type-name"
         type_name = element.get(attr_name)
         if not type_name:
             return "", None
@@ -119,7 +154,23 @@ class SharedState:
                 raise Exception(f"Cannot use type {type_name} as {attr_name} here: {element}.")
             return primitive_type_name(type_name), None
         else:
-            if force_type and force_type != self.type_dict[type_name].get("ld:meta"):
+            if force_type and force_type != self.type_dict[type_name].get(f"{NS_PREFIX}meta"):
                 raise Exception(f"Cannot use type {type_name} as {attr_name} here: {element}.")
             rtype = self.main_namespace + "::" + type_name
             return rtype, self.type_dict[type_name]
+
+    def get_fully_qualified_name(self, element: etree._Element, name: str, namespace=True) -> str:
+        names = []
+        if namespace:
+            names.append(self.main_namespace)
+        for parent in element.xpath("ancestor::*"):
+            if parent.tag == f"{NS_PREFIX}global-type":
+                names.append(parent.get("type-name"))
+            elif parent.tag == f"{NS_PREFIX}global-object":
+                names.append("global")
+            elif td_name := parent.get(f"{NS_PREFIX}typedef-name"):
+                names.append(td_name)
+        if name:
+            names.append(name)
+
+        return "::".join(names)
